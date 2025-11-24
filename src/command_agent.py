@@ -114,8 +114,8 @@ class CommandAgent:
                     dest_words = user_words[user_lower[:to_idx].count(' ') + 1:]
                     dest = self._extract_file_or_directory_name(dest_words, user_input, is_destination=True)
                     
-                    if source and dest:
-                        return self._build_copy_command(source, dest, user_lower, matched_output)
+                if source and dest:
+                    return self._build_copy_command(source, dest, user_lower, matched_output)
         
         descriptive_phrase_patterns = [
             r'using\s+a\s+\w+\s+(approach|way|method|manner|mode|style)',
@@ -266,6 +266,263 @@ class CommandAgent:
             last_word_clean = last_word.strip("'\".,;:!?")
             if last_word_clean and len(last_word_clean) > 0 and last_word_clean.replace('_', '').replace('.', '').isalnum():
                 return last_word_clean
+        
+        return None
+    
+    def _handle_file_operations(self, user_input: str) -> Optional[str]:
+        """Handle file operations (create, write, append, read) before ML matching.
+        
+        Takes in:
+            user_input: Natural language prompt
+        
+        Gives back:
+            Command string if file operation detected, None otherwise"""
+        
+        user_lower = user_input.lower()
+        user_words = user_input.split()
+        
+        if 'create' in user_lower and 'file' in user_lower:
+            file_name = self._extract_file_name_from_create(user_input, user_lower, user_words)
+            if file_name:
+                return f'touch {file_name}'
+        
+        if 'write' in user_lower and 'to' in user_lower:
+            content, file_name = self._extract_write_operation(user_input, user_lower, user_words)
+            if content and file_name:
+                if content.startswith("'") and content.endswith("'"):
+                    return f"echo {content} > {file_name}"
+                elif content.startswith('"') and content.endswith('"'):
+                    return f'echo {content} > {file_name}'
+                else:
+                    return f"echo '{content}' > {file_name}"
+        
+        if ('add' in user_lower or 'append' in user_lower) and 'to' in user_lower:
+            content, file_name = self._extract_append_operation(user_input, user_lower, user_words)
+            if content and file_name:
+                if content.startswith("'") and content.endswith("'"):
+                    return f"echo {content} >> {file_name}"
+                elif content.startswith('"') and content.endswith('"'):
+                    return f'echo {content} >> {file_name}'
+                else:
+                    return f"echo '{content}' >> {file_name}"
+        
+        if 'read' in user_lower and 'file' in user_lower:
+            file_name = self._extract_file_name_from_read(user_input, user_lower, user_words)
+            if file_name:
+                return f'cat {file_name}'
+        
+        return None
+    
+    def _extract_file_name_from_create(self, user_input: str, user_lower: str, user_words: list) -> Optional[str]:
+        """Extract file name from create file commands.
+        
+        Takes in:
+            user_input: Original user input
+            user_lower: Lowercase user input
+            user_words: List of words from user input
+        
+        Gives back:
+            File name with extension preserved"""
+        
+        named_idx = user_lower.find('named')
+        called_idx = user_lower.find('called')
+        file_idx = user_lower.find('file')
+        
+        if named_idx != -1:
+            start_idx = named_idx + len('named')
+            remaining = user_input[start_idx:].strip()
+            words = remaining.split()
+            return self._extract_file_name_from_words(words, user_input)
+        
+        if called_idx != -1:
+            start_idx = called_idx + len('called')
+            remaining = user_input[start_idx:].strip()
+            words = remaining.split()
+            return self._extract_file_name_from_words(words, user_input)
+        
+        if file_idx != -1:
+            for i in range(file_idx + 1, len(user_words)):
+                word = user_words[i]
+                word_clean = word.strip("'\".,;:!?")
+                if word_clean.lower() in ['named', 'called', 'the', 'a', 'an']:
+                    continue
+                if word_clean and ('.' in word_clean or word_clean[0].isupper() or '_' in word_clean):
+                    return self._extract_file_name_from_words(user_words[i:], user_input)
+        
+        return None
+    
+    def _extract_file_name_from_words(self, words: list, original_input: str) -> Optional[str]:
+        """Extract file name from a list of words, preserving extension and quotes.
+        
+        Takes in:
+            words: List of words to extract from
+            original_input: Original user input for context
+        
+        Gives back:
+            File name with extension and quotes preserved if needed"""
+        
+        if not words:
+            return None
+        
+        file_parts = []
+        for word in words:
+            word_clean = word.strip("'\".,;:!?")
+            word_lower = word_clean.lower()
+            
+            if word_lower in ['the', 'a', 'an', 'in', 'on', 'at', 'to', 'from', 'with', 'and', 'or']:
+                if file_parts:
+                    break
+                continue
+            
+            if word.startswith('/') or word.startswith('~'):
+                return word
+            
+            if word_clean:
+                if '.' in word_clean:
+                    file_parts.append(word)
+                    break
+                elif word_clean[0].isupper() or '_' in word_clean:
+                    file_parts.append(word)
+                elif word_clean.replace('.', '').replace('_', '').isalnum() and len(word_clean) > 1:
+                    file_parts.append(word)
+                    if '.' in word:
+                        break
+        
+        if file_parts:
+            result = ' '.join(file_parts)
+            if ' ' in result and not (result.startswith("'") and result.endswith("'")):
+                if not (result.startswith('"') and result.endswith('"')):
+                    result = f"'{result}'"
+            return result
+        
+        if words:
+            first_word = words[0].strip("'\".,;:!?")
+            if first_word and ('.' in first_word or first_word.replace('.', '').replace('_', '').isalnum()):
+                return words[0]
+        
+        return None
+    
+    def _extract_write_operation(self, user_input: str, user_lower: str, user_words: list) -> Tuple[Optional[str], Optional[str]]:
+        """Extract content and file name from write operations.
+        
+        Takes in:
+            user_input: Original user input
+            user_lower: Lowercase user input
+            user_words: List of words from user input
+        
+        Gives back:
+            Tuple of (content, file_name)"""
+        
+        write_idx = user_lower.find('write')
+        to_idx = user_lower.find('to')
+        file_idx = user_lower.find('file')
+        
+        if write_idx == -1 or to_idx == -1:
+            return None, None
+        
+        if write_idx < to_idx:
+            to_word_idx = user_lower[:to_idx].count(' ')
+            content_words = user_words[write_idx + 1:to_word_idx]
+            content = ' '.join(content_words).strip()
+            
+            file_words = user_words[to_word_idx + 1:]
+            
+            if file_idx != -1 and file_idx > to_idx:
+                file_word_idx = user_lower[:file_idx].count(' ')
+                if file_word_idx >= to_word_idx:
+                    file_words = user_words[file_word_idx:]
+            
+            file_name = self._extract_file_name_from_words(file_words, user_input)
+            
+            if not file_name and file_words:
+                first_word = file_words[0].strip("'\".,;:!?")
+                if '.' in first_word or first_word.replace('.', '').replace('_', '').isalnum():
+                    file_name = file_words[0]
+            
+            if content and file_name:
+                return content, file_name
+        
+        return None, None
+    
+    def _extract_append_operation(self, user_input: str, user_lower: str, user_words: list) -> Tuple[Optional[str], Optional[str]]:
+        """Extract content and file name from append/add operations.
+        
+        Takes in:
+            user_input: Original user input
+            user_lower: Lowercase user input
+            user_words: List of words from user input
+        
+        Gives back:
+            Tuple of (content, file_name)"""
+        
+        add_idx = user_lower.find('add')
+        append_idx = user_lower.find('append')
+        to_idx = user_lower.find('to')
+        file_idx = user_lower.find('file')
+        
+        action_idx = add_idx if add_idx != -1 else append_idx
+        if action_idx == -1 or to_idx == -1:
+            return None, None
+        
+        if action_idx < to_idx:
+            to_word_idx = user_lower[:to_idx].count(' ')
+            content_words = user_words[action_idx + 1:to_word_idx]
+            content = ' '.join(content_words).strip()
+            
+            file_words = user_words[to_word_idx + 1:]
+            
+            if file_idx != -1 and file_idx > to_idx:
+                file_word_idx = user_lower[:file_idx].count(' ')
+                if file_word_idx >= to_word_idx:
+                    file_words = user_words[file_word_idx:]
+            
+            file_name = self._extract_file_name_from_words(file_words, user_input)
+            
+            if not file_name and file_words:
+                first_word = file_words[0].strip("'\".,;:!?")
+                if '.' in first_word or first_word.replace('.', '').replace('_', '').isalnum():
+                    file_name = file_words[0]
+            
+            if content and file_name:
+                return content, file_name
+        
+        return None, None
+    
+    def _extract_file_name_from_read(self, user_input: str, user_lower: str, user_words: list) -> Optional[str]:
+        """Extract file name from read file commands.
+        
+        Takes in:
+            user_input: Original user input
+            user_lower: Lowercase user input
+            user_words: List of words from user input
+        
+        Gives back:
+            File name with extension preserved"""
+        
+        read_idx = user_lower.find('read')
+        file_idx = user_lower.find('file')
+        
+        if read_idx == -1 or file_idx == -1:
+            return None
+        
+        if read_idx < file_idx:
+            file_word_idx = user_lower[:file_idx].count(' ')
+            file_words = user_words[file_word_idx + 1:]
+            if not file_words:
+                file_words = user_words[file_word_idx:]
+            
+            filtered_file_words = [w for w in file_words if w.lower() not in ['file', 'the', 'a', 'an']]
+            if not filtered_file_words:
+                filtered_file_words = file_words
+            
+            file_name = self._extract_file_name_from_words(filtered_file_words, user_input)
+            
+            if not file_name and filtered_file_words:
+                first_word = filtered_file_words[0].strip("'\".,;:!?")
+                if '.' in first_word or first_word.replace('.', '').replace('_', '').isalnum():
+                    file_name = filtered_file_words[0]
+            
+            return file_name
         
         return None
     
@@ -571,6 +828,9 @@ class CommandAgent:
         if self._is_multi_step(user_input):
             return self._handle_multi_step(user_input)
         
+        file_operation = self._handle_file_operations(user_input)
+        if file_operation:
+            return file_operation
         
         short_command_match = self._handle_short_commands(user_input)
         if short_command_match:

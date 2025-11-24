@@ -34738,5 +34738,85 @@
   {
     "input": "list all files and go to for_cursor directory",
     "output": "ls -la; cd for_cursor"
+  },
+  {
+    "input": "print the current directory",
+    "output": "pwd"
+  },
+  {
+    "input": "print current directory",
+    "output": "pwd"
+  },
+  {
+    "input": "display the current directory",
+    "output": "pwd"
+  },
+  {
+    "input": "show me the current direct",
+    "output": "pwd"
+  },
+  {
+    "input": "list all files in the Dataset folder",
+    "output": "ls -la Dataset"
+  },
+  {
+    "input": "list all files in Dataset folder",
+    "output": "ls -la Dataset"
+  },
+  {
+    "input": "list files in Dataset directory",
+    "output": "ls Dataset"
+  },
+  {
+    "input": "show files in Dataset folder",
+    "output": "ls Dataset"
+  },
+  {
+    "input": "list all files in the Dataset directory",
+    "output": "ls Dataset"
+  },
+  {
+    "input": "print all files in the Dataset directory",
+    "output": "ls Dataset"
+  },
+  {
+    "input": "list all files in Dataset directory",
+    "output": "ls Dataset"
+  },
+  {
+    "input": "list files in the Dataset directory",
+    "output": "ls Dataset"
+  },
+  {
+    "input": "go to Dataset directory",
+    "output": "cd Dataset"
+  },
+  {
+    "input": "go to the Dataset directory",
+    "output": "cd Dataset"
+  },
+  {
+    "input": "list all files in the model directory",
+    "output": "ls model"
+  },
+  {
+    "input": "list files in model directory",
+    "output": "ls model"
+  },
+  {
+    "input": "go to model directory",
+    "output": "cd model"
+  },
+  {
+    "input": "show me current directory",
+    "output": "pwd"
+  },
+  {
+    "input": "show current directory",
+    "output": "pwd"
+  },
+  {
+    "input": "go back",
+    "output": "cd -"
   }
 ]

@@ -23,7 +23,7 @@ from pathlib import Path
 
 
 try:
-    import readline  # type: ignore
+    import readline
 except ImportError:
     readline = None
 
@@ -48,7 +48,7 @@ class MiniPyShell:
         self.aliases: dict[str, str] = {}
         self.running = True
         self.last_exit_code = 0
-        self.prev_dir: str | None = None  # For cd - support
+        self.prev_dir: str | None = None
 
         self.history_path = Path.home() / ".minipy_history"
         
@@ -324,7 +324,7 @@ class MiniPyShell:
          shows loading messages and handles errors gracefully."""
         print(f"{Colors.FG_CYAN}Loading command agent...{Colors.RESET}")
         try:
-            from command_agent import CommandAgent
+            from src.command_agent import CommandAgent
             self.command_agent = CommandAgent()
             print(f"{Colors.FG_GREEN}Command agent ready!{Colors.RESET}\n")
         except Exception as e:
@@ -343,28 +343,22 @@ class MiniPyShell:
             return line
         
 
-        if self._is_likely_command(line):
-            return line
-        
-
         if self.command_agent is None:
             return line
         
-
-        if self._is_natural_language(line):
-            try:
-                translated = self.command_agent.translate(line)
-                
-
-                if translated != line and not translated.startswith("echo 'Command not found"):
-                    print(f"{Colors.DIM}→ {translated}{Colors.RESET}")
-                
-                return translated
-            except Exception as e:
-                print(f"{Colors.FG_YELLOW}Warning: Translation error: {e}{Colors.RESET}")
-                return line
+        if self._is_likely_command(line) and not self._is_natural_language(line):
+            return line
         
-        return line
+        try:
+            translated = self.command_agent.translate(line)
+            
+            if translated != line and not translated.startswith("echo 'Command not found"):
+                print(f"{Colors.DIM}→ {translated}{Colors.RESET}")
+            
+            return translated
+        except Exception as e:
+            print(f"{Colors.FG_YELLOW}Warning: Translation error: {e}{Colors.RESET}")
+            return line
     
     def _is_likely_command(self, line: str) -> bool:
         """Checks whether line is likely already a direct command.
@@ -383,10 +377,10 @@ class MiniPyShell:
 
 
         command_patterns = [
-            r'^[a-z]+\s+[-/]',  # Command with flag
-            r'^[a-z]+\s+/',  # Command with absolute path
-            r'^[a-z]+\s+\./',  # Command with relative path
-            r'^[a-z]+\s+[a-z]+\.[a-z]+',  # Command with file.ext
+            r'^[a-z]+\s+[-/]',
+            r'^[a-z]+\s+/',
+            r'^[a-z]+\s+\./',
+            r'^[a-z]+\s+[a-z]+\.[a-z]+',
         ]
         
         import re
@@ -399,11 +393,11 @@ class MiniPyShell:
 
         if re.match(r'^[a-z]+\s+[a-z]+$', line_lower):
 
-            natural_phrases = ['Go back', 'Go to', 'Go home', 'Go previous', 'Show me', 'Show current', 
-                             'List all', 'List files', 'Print hello', 'Print text', 'Navigate back',
-                             'Enter directory', 'Change directory', 'Copy files', 'Copy all']
-            if line_lower not in natural_phrases and 'Go ' not in line_lower and 'Print ' not in line_lower:
-                natural_markers = [' the ', ' a ', ' an ', ' this ', ' that ', ' your ', ' my ']
+            natural_phrases = ['go back', 'go to', 'go home', 'go previous', 'show me', 'show current', 
+                             'list all', 'list files', 'print hello', 'print text', 'navigate back',
+                             'enter directory', 'change directory', 'copy files', 'copy all']
+            if line_lower not in natural_phrases and 'go ' not in line_lower and 'print ' not in line_lower:
+                natural_markers = [' the ', ' a ', ' an ', ' this ', ' that ', ' your ', ' my ', ' me ', ' current ', ' directory ']
                 if not any(marker in line_lower for marker in natural_markers):
                     return True
         
@@ -431,13 +425,14 @@ class MiniPyShell:
             'How do i', 'How to', 'Show me', 'Help me', 'List',
             'Find', 'Search', 'Copy', 'Move', 'Create', 'Delete',
             'The file', 'The directory', 'All files', 'This directory',
-            'Show current', 'Show working', 'Current directory', 'Current folder',
+            'Show current', 'Show working', 'Current directory', 'Current folder', 'Current direct',
             'Working directory', 'Working folder', 'Enter', 'Change directory',
             'Go to', 'Navigate to', 'Switch to', 'Copy all', 'Copy files',
             'List all', 'List files', 'Without details', 'With details',
             'Go back', 'Go previous', 'Navigate back', 'Return to',
             'Print', 'Display', 'Output', 'Show', 'Echo',
-            'After', 'Then', 'And', 'Before', 'While'
+            'After', 'Then', 'And', 'Before', 'While',
+            'Show me current', 'List all files', 'Print all files'
         ]
         
 
@@ -467,7 +462,7 @@ class MiniPyShell:
 
 
         words = line.split()
-        if len(words) >= 3:  # Longer phrases are more likely natural language
+        if len(words) >= 3:
             articles = ['The', 'a', 'An', 'This', 'That', 'These', 'Those', 'Your', 'My', 'Our']
             if any(article in line_lower for article in articles):
                 return True
@@ -544,22 +539,18 @@ class MiniPyShell:
                 
 
                 cmd_lower = cmd.lower().strip()
-                if cmd_lower.startswith('Cd '):
-
-                    cd_args = cmd[2:].strip()  # Skip "cd" (2 chars) and space
+                if cmd_lower.startswith('cd '):
+                    cd_args = cmd[3:].strip()
                     if cd_args:
-
                         try:
-
                             args = shlex.split(cd_args)
                             self._builtin_cd(args)
-                            continue  # Skip subprocess execution for cd
+                            continue
                         except Exception as exc:
                             print(f"{Colors.FG_RED}cd error: {exc}{Colors.RESET}")
                             self.last_exit_code = 1
                             continue
-                elif cmd_lower == 'Cd':
-
+                elif cmd_lower == 'cd':
                     try:
                         self._builtin_cd([])
                         continue
@@ -574,12 +565,12 @@ class MiniPyShell:
                 proc = subprocess.Popen(
                     cmd,
                     shell=True,
-                    executable='/bin/bash',  # Use bash explicitly for proper expansion
+                    executable='/bin/bash',
                     text=True,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     env=self.env,
-                    cwd=os.getcwd(),  # Use current working directory
+                    cwd=os.getcwd(),
                 )
 
                 assert proc.stdout is not None

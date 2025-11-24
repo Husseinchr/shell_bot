@@ -18,24 +18,33 @@ from nltk.corpus import stopwords
 
 
 try:
-    nltk.data.find('Tokenizers/punkt_tab')
+    nltk.data.find('tokenizers/punkt_tab')
 except LookupError:
-    nltk.download('Punkt_tab', quiet=True)
+    try:
+        nltk.download('punkt_tab', quiet=True)
+    except Exception:
+        try:
+            nltk.data.find('tokenizers/punkt')
+        except LookupError:
+            nltk.download('punkt', quiet=True)
 
 try:
-    nltk.data.find('Corpora/wordnet')
+    nltk.data.find('corpora/wordnet')
 except LookupError:
-    nltk.download('Wordnet', quiet=True)
+    nltk.download('wordnet', quiet=True)
 
 try:
-    nltk.data.find('Corpora/omw-1.4')
+    nltk.data.find('corpora/omw-1.4')
 except LookupError:
-    nltk.download('Omw-1.4', quiet=True)
+    try:
+        nltk.download('omw-1.4', quiet=True)
+    except Exception:
+        pass
 
 try:
-    nltk.data.find('Corpora/stopwords')
+    nltk.data.find('corpora/stopwords')
 except LookupError:
-    nltk.download('Stopwords', quiet=True)
+    nltk.download('stopwords', quiet=True)
 
 
 try:
@@ -51,7 +60,7 @@ class NLPPipeline:
     
     def __init__(self):
         """Sets up the NLP pipeline."""
-        self.stop_words = set(stopwords.words('English'))
+        self.stop_words = set(stopwords.words('english'))
         if nlp is None:
             raise RuntimeError("spaCy model not loaded. Please install en_core_web_sm")
         self.nlp = nlp
@@ -94,7 +103,7 @@ class NLPPipeline:
             'Dependencies': dependencies,
             'Chunks': chunks,
             'Word_meanings': word_meanings,
-            'Doc': doc  # Keep spaCy doc for further processing
+            'Doc': doc
         }
     
     def _empty_result(self) -> Dict[str, Any]:
@@ -158,8 +167,8 @@ class NLPPipeline:
         for token in doc:
             pos_tags.append({
                 'Token': token.text,
-                'Pos': token.pos_,  # Universal POS tag
-                'Tag': token.tag_,  # Detailed POS tag (Penn Treebank)
+                'Pos': token.pos_,
+                'Tag': token.tag_,
                 'Is_stop': token.is_stop,
                 'Is_alpha': token.is_alpha
             })
@@ -176,9 +185,9 @@ class NLPPipeline:
         for token in doc:
             dependencies.append({
                 'Token': token.text,
-                'Dep': token.dep_,  # Dependency relation
-                'Head': token.head.text,  # Head token
-                'Head_pos': token.head.pos_,  # Head POS
+                'Dep': token.dep_,
+                'Head': token.head.text,
+                'Head_pos': token.head.pos_,
                 'Children': [child.text for child in token.children]
             })
         
@@ -209,7 +218,7 @@ class NLPPipeline:
                 primary_synset = synsets[0]
                 word_meanings.append({
                     'Word': token,
-                    'Synsets': [syn.name() for syn in synsets[:3]],  # Top 3 synsets
+                    'Synsets': [syn.name() for syn in synsets[:3]],
                     'Definition': primary_synset.definition(),
                     'Examples': primary_synset.examples()[:2] if primary_synset.examples() else []
                 })

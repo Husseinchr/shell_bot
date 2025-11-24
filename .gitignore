@@ -1,3 +1,5 @@
 for_cursor
 __pycache__
 venv
+models
+MODEL_AND_TRAINING_EXPLANATION.md

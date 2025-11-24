@@ -29,8 +29,10 @@ pip install -r requirements.txt
 # Download spaCy English model
 python -m spacy download en_core_web_sm
 
-# Download NLTK data (will be downloaded automatically on first run)
-python -c "import nltk; nltk.download('punkt_tab'); nltk.download('wordnet'); nltk.download('omw-1.4'); nltk.download('stopwords')"
+# Download NLTK data (will be downloaded automatically on first run, or run manually):
+python download_nltk_data.py
+# OR manually:
+python -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab'); nltk.download('wordnet'); nltk.download('omw-1.4'); nltk.download('stopwords')"
 ```
 
 ### Option 2: Global Installation
@@ -45,8 +47,10 @@ pip install -r requirements.txt
 # Download spaCy English model
 python -m spacy download en_core_web_sm
 
-# Download NLTK data (will be downloaded automatically on first run)
-python -c "import nltk; nltk.download('punkt_tab'); nltk.download('wordnet'); nltk.download('omw-1.4'); nltk.download('stopwords')"
+# Download NLTK data (will be downloaded automatically on first run, or run manually):
+python download_nltk_data.py
+# OR manually:
+python -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab'); nltk.download('wordnet'); nltk.download('omw-1.4'); nltk.download('stopwords')"
 ```
 
 ## Usage

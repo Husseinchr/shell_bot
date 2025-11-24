@@ -21,11 +21,12 @@ import numpy as np
 from .nlp_pipeline import NLPPipeline
 from .malware_detector import MalwareDetector
 
+from joblib import dump,load
 
 class CommandAgent:
     """AI agent that translates natural language to Linux commands."""
     
-    def __init__(self, dataset_path: Optional[str] = None):
+    def __init__(self, dataset_path: Optional[str] = None, use_embeddings: bool = False):
         """Sets up the command agent.
         
         Takes in:
@@ -47,9 +48,23 @@ class CommandAgent:
         self.vectorizer: Optional[TfidfVectorizer] = None
         self.input_vectors = None
         
+        self.use_embeddings = use_embeddings
+        self.embedding_model = None
+        self.dataset_embeddings = None
+        self.tfidf_vectorizer_path = Path("models/tfidf_vectorizer.joblib")
+        self.tfidf_matrix_path = Path("models/tfidf_vectors.joblib")
+        self.embedding_cache_path = Path("models/dataset_embeddings.npy")
+        self.embedding_model_path = Path("models/minilm_model")
 
         self._load_dataset()
-        self._build_model()
+        if self.tfidf_vectorizer_path.exists() and self.tfidf_matrix_path.exists():
+            print("Loading cached TF-IDF model...")
+            self.vectorizer = load(self.tfidf_vectorizer_path)
+            self.input_vectors = load(self.tfidf_matrix_path)
+            print("Cached TF-IDF loaded. No retraining needed.")
+        else:
+            print("No TF-IDF cache found. Training from scratch...")
+            self._build_model()
     
     def _load_dataset(self):
         """Loads the training dataset from JSON file."""
@@ -807,8 +822,41 @@ class CommandAgent:
         
 
         self.input_vectors = self.vectorizer.fit_transform(processed_inputs)
-        
-        print(f"Model built with {self.input_vectors.shape[1]} features")
+        os.makedirs("models", exist_ok=True)
+        dump(self.vectorizer, self.tfidf_vectorizer_path)
+        dump(self.input_vectors, self.tfidf_matrix_path)
+
+        print("TF-IDF cached successfully!")
+        if self.use_embeddings:
+            print("Loading / Building MiniLM embeddings...")
+
+            # Load MiniLM model (cached or download)
+            from sentence_transformers import SentenceTransformer
+
+            if self.embedding_model_path.exists():
+                print("Loading cached MiniLM model...")
+                self.embedding_model = SentenceTransformer(str(self.embedding_model_path))
+            else:
+                print("Downloading MiniLM model...")
+                self.embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+                self.embedding_model.save(str(self.embedding_model_path))
+                print("MiniLM model cached!")
+
+            # Load cached embeddings
+            if self.embedding_cache_path.exists():
+                print("Loading cached sentence embeddings...")
+                self.dataset_embeddings = np.load(self.embedding_cache_path)
+            else:
+                print("Computing embeddings for all dataset commands...")
+                self.dataset_embeddings = self.embedding_model.encode(
+                    self.input_texts,
+                    batch_size=32,
+                    normalize_embeddings=True,
+                    show_progress_bar=True
+                )
+                np.save(self.embedding_cache_path, self.dataset_embeddings)
+                print("Embeddings saved!")
+                print(f"Model built with {self.input_vectors.shape[1]} features")
     
     def translate(self, user_input: str, top_k: int = 3) -> str:
         """Translate natural language input to Linux command(s).
@@ -1358,7 +1406,18 @@ class CommandAgent:
         if not self.vectorizer or self.input_vectors is None:
             return None
         
-
+        if self.use_embeddings and self.embedding_model is not None and self.dataset_embeddings is not None:
+            query_emb = self.embedding_model.encode(
+                [user_input],
+                normalize_embeddings=True
+            )
+            sims = cosine_similarity(query_emb, self.dataset_embeddings)[0]
+            best_idx = int(np.argmax(sims))
+            best_sim = sims[best_idx]
+        
+            # threshold for acceptable match
+            if best_sim > 0.40:
+                return self.output_commands[best_idx]
         processed_input = self._preprocess_text(user_input, normalize_entities=True)
         
 

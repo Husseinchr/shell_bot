@@ -47,7 +47,7 @@ class Colors:
 
 
 class MiniPyShell:
-    def __init__(self) -> None:
+    def __init__(self, use_embeddings: bool = False) -> None:
         self.env = os.environ.copy()
         self.aliases: dict[str, str] = {}
         self.running = True
@@ -58,7 +58,7 @@ class MiniPyShell:
         
 
         self.command_agent = None
-
+        self.use_embeddings = use_embeddings
 
         self.builtins = {
             "cd": self._builtin_cd,
@@ -332,7 +332,7 @@ class MiniPyShell:
                 from src.command_agent import CommandAgent
             except ImportError:
                 from command_agent import CommandAgent
-            self.command_agent = CommandAgent()
+            self.command_agent = CommandAgent(use_embeddings=self.use_embeddings)
             print(f"{Colors.FG_GREEN}Command agent ready!{Colors.RESET}\n")
         except Exception as e:
             print(f"{Colors.FG_YELLOW}Warning: Could not load command agent: {e}{Colors.RESET}")
@@ -855,8 +855,14 @@ class MiniPyShell:
 
 
 def main() -> None:
-    shell = MiniPyShell()
+    use_embeddings = False
+
+    if len(sys.argv) > 1 and sys.argv[1].lower() == "embeddings":
+        use_embeddings = True
+
+    shell = MiniPyShell(use_embeddings=use_embeddings)
     shell.run()
+
 
 
 if __name__ == "__main__":

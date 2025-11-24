@@ -21,6 +21,10 @@ import socket
 import re
 from pathlib import Path
 
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 
 try:
     import readline
@@ -324,7 +328,10 @@ class MiniPyShell:
          shows loading messages and handles errors gracefully."""
         print(f"{Colors.FG_CYAN}Loading command agent...{Colors.RESET}")
         try:
-            from src.command_agent import CommandAgent
+            try:
+                from src.command_agent import CommandAgent
+            except ImportError:
+                from command_agent import CommandAgent
             self.command_agent = CommandAgent()
             print(f"{Colors.FG_GREEN}Command agent ready!{Colors.RESET}\n")
         except Exception as e:

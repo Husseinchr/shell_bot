@@ -1,6 +1,6 @@
 # NLP Command Agent - Natural Language to Linux Commands
 
-An AI-powered agent that translates natural language prompts into Linux commands using a 5-step NLP pipeline. The agent is integrated into a Python shell (`mini_shell.py`) to allow users to type natural language instead of commands.
+An AI-powered agent that translates natural language prompts into Linux commands using a 5-step NLP pipeline. The agent is integrated into a Python shell (`src/mini_shell.py`) to allow users to type natural language instead of commands.
 
 ## Features
 
@@ -8,7 +8,7 @@ An AI-powered agent that translates natural language prompts into Linux commands
 - **Natural Language Translation**: Converts prompts like "I want to list all files" to `ls -la`
 - **Multi-Step Commands**: Handles complex requests like "enter directory then list files then copy file"
 - **Malware Detection**: Detects and blocks dangerous commands before execution
-- **Shell Integration**: Seamlessly integrated into mini_shell.py
+- **Shell Integration**: Seamlessly integrated into `src/mini_shell.py`
 
 ## Installation
 
@@ -27,12 +27,12 @@ pip install -r requirements.txt
 3. Download required NLP models:
 ```bash
 # Download spaCy English model
-python -m spacy download en_core_web_sm
+python3 -m spacy download en_core_web_sm
 
 # Download NLTK data (will be downloaded automatically on first run, or run manually):
-python download_nltk_data.py
+python3 scripts/download_nltk_data.py
 # OR manually:
-python -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab'); nltk.download('wordnet'); nltk.download('omw-1.4'); nltk.download('stopwords')"
+python3 -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab'); nltk.download('wordnet'); nltk.download('omw-1.4'); nltk.download('stopwords')"
 ```
 
 ### Option 2: Global Installation
@@ -45,12 +45,12 @@ pip install -r requirements.txt
 2. Download required NLP models:
 ```bash
 # Download spaCy English model
-python -m spacy download en_core_web_sm
+python3 -m spacy download en_core_web_sm
 
 # Download NLTK data (will be downloaded automatically on first run, or run manually):
-python download_nltk_data.py
+python3 scripts/download_nltk_data.py
 # OR manually:
-python -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab'); nltk.download('wordnet'); nltk.download('omw-1.4'); nltk.download('stopwords')"
+python3 -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab'); nltk.download('wordnet'); nltk.download('omw-1.4'); nltk.download('stopwords')"
 ```
 
 ## Usage
@@ -62,15 +62,21 @@ python -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab'); nltk
 ./run_shell.sh
 ```
 
-**Option 2: Manual activation**
+**Option 2: Run directly**
 ```bash
 source venv/bin/activate
-python mini_shell.py
+python3 src/mini_shell.py
 ```
 
-**Option 3: Without virtual environment (if installed globally)**
+**Option 3: Run as module**
 ```bash
-python mini_shell.py
+source venv/bin/activate
+python3 -m src.mini_shell
+```
+
+**Option 4: Without virtual environment (if installed globally)**
+```bash
+python3 src/mini_shell.py
 ```
 
 ### Using Natural Language Commands
@@ -108,25 +114,25 @@ $ pwd
 
 ### Components
 
-1. **nlp_pipeline.py**: Implements the 5-step NLP processing
+1. **src/nlp_pipeline.py**: Implements the 5-step NLP processing
    - Step 1: Tokenization/Segmentation (NLTK)
    - Step 2: Lemmatization (spaCy)
    - Step 3: POS Tagging (spaCy)
    - Step 4: Dependency Parsing/Chunking (spaCy)
    - Step 5: Word Meaning (WordNet)
 
-2. **malware_detector.py**: Detects dangerous commands using:
+2. **src/malware_detector.py**: Detects dangerous commands using:
    - Pattern matching for known dangerous patterns
    - Semantic analysis using WordNet
    - Dependency parsing to identify destructive actions
 
-3. **command_agent.py**: Main agent that:
+3. **src/command_agent.py**: Main agent that:
    - Loads training data from `Dataset/linuxcommands.json`
    - Uses TF-IDF for semantic matching
    - Handles multi-step command translation
    - Integrates with malware detector
 
-4. **mini_shell.py**: Modified shell with natural language support
+4. **src/mini_shell.py**: Modified shell with natural language support
 
 ### Training Data
 
@@ -137,7 +143,7 @@ The agent is trained on `Dataset/linuxcommands.json` which contains 8,669 exampl
 Run the test suite:
 
 ```bash
-python test_nlp_agent.py
+python3 scripts/test_translations.py
 ```
 
 This will test:

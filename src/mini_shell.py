@@ -19,6 +19,7 @@ import subprocess
 import shutil
 import socket
 import re
+import signal
 from pathlib import Path
 
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -53,12 +54,17 @@ class MiniPyShell:
         self.running = True
         self.last_exit_code = 0
         self.prev_dir: str | None = None
+        self.current_proc = None
+        
+        signal.signal(signal.SIGINT, self._handle_sigint)
+        signal.signal(signal.SIGTSTP, self._handle_sigtstp)
 
         self.history_path = Path.home() / ".minipy_history"
         
 
         self.command_agent = None
         self.use_embeddings = use_embeddings
+        # print(self.use_embeddings)
 
         self.builtins = {
             "cd": self._builtin_cd,
@@ -235,9 +241,23 @@ class MiniPyShell:
                 line = input(self._prompt())
             except EOFError:
                 print()
+                if self.current_proc:
+                    try:
+                        self.current_proc.terminate()
+                        self.current_proc.wait(timeout=1)
+                    except Exception:
+                        pass
+                    self.current_proc = None
                 break
             except KeyboardInterrupt:
                 print()
+                if self.current_proc:
+                    try:
+                        self.current_proc.terminate()
+                        self.current_proc.wait(timeout=1)
+                    except Exception:
+                        pass
+                    self.current_proc = None
                 continue
 
             line = line.strip()
@@ -248,6 +268,32 @@ class MiniPyShell:
 
         self._save_history()
         print("Good Bye from the best shell in the world!")
+    
+    def _handle_sigint(self, signum, frame):
+        """Handle SIGINT (Ctrl+C) signal."""
+        if self.current_proc:
+            try:
+                os.killpg(os.getpgid(self.current_proc.pid), signal.SIGINT)
+            except (ProcessLookupError, OSError):
+                try:
+                    self.current_proc.terminate()
+                except Exception:
+                    pass
+            self.current_proc = None
+    
+    def _handle_sigtstp(self, signum, frame):
+        """Handle SIGTSTP (Ctrl+Z) signal."""
+        if self.current_proc:
+            try:
+                os.killpg(os.getpgid(self.current_proc.pid), signal.SIGTSTP)
+                print()
+                print(f"^Z")
+                print(f"[{self.current_proc.pid}] + Stopped")
+            except (ProcessLookupError, OSError):
+                pass
+        else:
+            signal.signal(signal.SIGTSTP, signal.SIG_DFL)
+            os.kill(os.getpid(), signal.SIGTSTP)
 
 
 
@@ -375,7 +421,9 @@ class MiniPyShell:
         true if it looks like a command"""
         line_lower = line.lower().strip()
         
-
+        if line_lower.startswith('sudo '):
+            return True
+        
         builtin_commands = list(self.builtins.keys())
         first_word = line_lower.split()[0] if line_lower.split() else ""
         if first_word in builtin_commands:
@@ -578,14 +626,41 @@ class MiniPyShell:
                     stderr=subprocess.STDOUT,
                     env=self.env,
                     cwd=os.getcwd(),
+                    preexec_fn=os.setsid,
                 )
 
-                assert proc.stdout is not None
-                for out_line in proc.stdout:
-                    print(out_line, end="")
-
-                exit_code = proc.wait()
-                self.last_exit_code = exit_code
+                self.current_proc = proc
+                
+                try:
+                    assert proc.stdout is not None
+                    for out_line in proc.stdout:
+                        print(out_line, end="")
+                        sys.stdout.flush()
+                    
+                    exit_code = proc.wait()
+                    self.last_exit_code = exit_code
+                except KeyboardInterrupt:
+                    print()
+                    print(f"{Colors.FG_YELLOW}^C{Colors.RESET}")
+                    try:
+                        os.killpg(os.getpgid(proc.pid), signal.SIGINT)
+                        proc.wait(timeout=2)
+                    except subprocess.TimeoutExpired:
+                        try:
+                            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+                        except Exception:
+                            pass
+                    except (ProcessLookupError, OSError):
+                        try:
+                            proc.terminate()
+                            proc.wait(timeout=1)
+                        except Exception:
+                            pass
+                    except Exception:
+                        pass
+                    self.last_exit_code = 130
+                finally:
+                    self.current_proc = None
                 
 
 
@@ -860,6 +935,7 @@ def main() -> None:
     if len(sys.argv) > 1 and sys.argv[1].lower() == "embeddings":
         use_embeddings = True
 
+    # print(use_embeddings)
     shell = MiniPyShell(use_embeddings=use_embeddings)
     shell.run()
 

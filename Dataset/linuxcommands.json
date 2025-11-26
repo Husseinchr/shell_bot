@@ -34818,5 +34818,269 @@
   {
     "input": "go back",
     "output": "cd -"
+  },
+  {
+    "input": "read file.txt",
+    "output": "cat file.txt"
+  },
+  {
+    "input": "read the file data.txt",
+    "output": "cat data.txt"
+  },
+  {
+    "input": "read config.json",
+    "output": "cat config.json"
+  },
+  {
+    "input": "read temp.txt",
+    "output": "cat temp.txt"
+  },
+  {
+    "input": "read README.md",
+    "output": "cat README.md"
+  },
+  {
+    "input": "read script.py",
+    "output": "cat script.py"
+  },
+  {
+    "input": "write hello to file.txt",
+    "output": "echo 'hello' > file.txt"
+  },
+  {
+    "input": "write hello in file.txt",
+    "output": "echo 'hello' > file.txt"
+  },
+  {
+    "input": "write this is a test to data.txt",
+    "output": "echo 'this is a test' > data.txt"
+  },
+  {
+    "input": "write import os to script.py",
+    "output": "echo 'import os' > script.py"
+  },
+  {
+    "input": "write some content in temp.txt",
+    "output": "echo 'some content' > temp.txt"
+  },
+  {
+    "input": "add hello to file.txt",
+    "output": "echo 'hello' >> file.txt"
+  },
+  {
+    "input": "add hello in file.txt",
+    "output": "echo 'hello' >> file.txt"
+  },
+  {
+    "input": "append new line to file.txt",
+    "output": "echo 'new line' >> file.txt"
+  },
+  {
+    "input": "append more text in data.txt",
+    "output": "echo 'more text' >> data.txt"
+  },
+  {
+    "input": "create file named test.txt",
+    "output": "touch test.txt"
+  },
+  {
+    "input": "create file called script.py",
+    "output": "touch script.py"
+  },
+  {
+    "input": "create file named data.json",
+    "output": "touch data.json"
+  },
+  {
+    "input": "create file called README.md",
+    "output": "touch README.md"
+  },
+  {
+    "input": "create file named temp2.txt",
+    "output": "touch temp2.txt"
+  },
+  {
+    "input": "rename file.txt to data.txt",
+    "output": "mv file.txt data.txt"
+  },
+  {
+    "input": "rename old.txt to new.txt",
+    "output": "mv old.txt new.txt"
+  },
+  {
+    "input": "rename script.py to main.py",
+    "output": "mv script.py main.py"
+  },
+  {
+    "input": "change name of file.txt to data.txt",
+    "output": "mv file.txt data.txt"
+  },
+  {
+    "input": "rename temp.txt to backup.txt",
+    "output": "mv temp.txt backup.txt"
+  },
+  {
+    "input": "create directory named test_dir",
+    "output": "mkdir -p test_dir"
+  },
+  {
+    "input": "create folder called data",
+    "output": "mkdir -p data"
+  },
+  {
+    "input": "create dir named backup",
+    "output": "mkdir -p backup"
+  },
+  {
+    "input": "read directory test_dir",
+    "output": "ls test_dir"
+  },
+  {
+    "input": "read folder data",
+    "output": "ls data"
+  },
+  {
+    "input": "list directory contents",
+    "output": "ls"
+  },
+  {
+    "input": "list files in directory",
+    "output": "ls"
+  },
+  {
+    "input": "rename directory old_dir to new_dir",
+    "output": "mv old_dir new_dir"
+  },
+  {
+    "input": "rename folder data to backup",
+    "output": "mv data backup"
+  },
+  {
+    "input": "change permission of file.txt to 755",
+    "output": "chmod 755 file.txt"
+  },
+  {
+    "input": "change permission of script.sh to 700",
+    "output": "chmod 700 script.sh"
+  },
+  {
+    "input": "chmod 644 config.txt",
+    "output": "chmod 644 config.txt"
+  },
+  {
+    "input": "change owner of file.txt to user1",
+    "output": "chown user1 file.txt"
+  },
+  {
+    "input": "chown user1 file.txt",
+    "output": "chown user1 file.txt"
+  },
+  {
+    "input": "modify user testuser",
+    "output": "usermod testuser"
+  },
+  {
+    "input": "usermod -aG sudo user1",
+    "output": "usermod -aG sudo user1"
+  },
+  {
+    "input": "show ip address",
+    "output": "ip addr show"
+  },
+  {
+    "input": "display ip address",
+    "output": "ip addr show"
+  },
+  {
+    "input": "get ip address",
+    "output": "ip addr show"
+  },
+  {
+    "input": "show my ip",
+    "output": "ip addr show"
+  },
+  {
+    "input": "ping google.com",
+    "output": "ping google.com"
+  },
+  {
+    "input": "ping 8.8.8.8",
+    "output": "ping 8.8.8.8"
+  },
+  {
+    "input": "check if google.com is reachable",
+    "output": "ping google.com"
+  },
+  {
+    "input": "test connectivity to 8.8.8.8",
+    "output": "ping 8.8.8.8"
+  },
+  {
+    "input": "check connection to google.com",
+    "output": "ping google.com"
+  },
+  {
+    "input": "traceroute google.com",
+    "output": "traceroute google.com"
+  },
+  {
+    "input": "trace route to 8.8.8.8",
+    "output": "traceroute 8.8.8.8"
+  },
+  {
+    "input": "show route to google.com",
+    "output": "traceroute google.com"
+  },
+  {
+    "input": "show network route to 8.8.8.8",
+    "output": "traceroute 8.8.8.8"
+  },
+  {
+    "input": "show routing table",
+    "output": "ip route show"
+  },
+  {
+    "input": "display route",
+    "output": "ip route show"
+  },
+  {
+    "input": "hostname",
+    "output": "hostname"
+  },
+  {
+    "input": "show hostname",
+    "output": "hostname"
+  },
+  {
+    "input": "dns lookup google.com",
+    "output": "nslookup google.com"
+  },
+  {
+    "input": "lookup domain example.com",
+    "output": "nslookup example.com"
+  },
+  {
+    "input": "check if google.com is reachable one time",
+    "output": "ping -c 1 google.com"
+  },
+  {
+    "input": "check if google.com is reachable once",
+    "output": "ping -c 1 google.com"
+  },
+  {
+    "input": "test connectivity to google.com one time",
+    "output": "ping -c 1 google.com"
+  },
+  {
+    "input": "ping google.com once",
+    "output": "ping -c 1 google.com"
+  },
+  {
+    "input": "ping google.com one time",
+    "output": "ping -c 1 google.com"
+  },
+  {
+    "input": "check connection to google.com one time",
+    "output": "ping -c 1 google.com"
   }
 ]

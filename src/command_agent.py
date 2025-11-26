@@ -296,12 +296,17 @@ class CommandAgent:
         user_lower = user_input.lower()
         user_words = user_input.split()
         
-        if 'create' in user_lower and 'file' in user_lower:
-            file_name = self._extract_file_name_from_create(user_input, user_lower, user_words)
-            if file_name:
-                return f'touch {file_name}'
+        if 'create' in user_lower:
+            if 'file' in user_lower:
+                file_name = self._extract_file_name_from_create(user_input, user_lower, user_words)
+                if file_name:
+                    return f'touch {file_name}'
+            elif 'directory' in user_lower or 'folder' in user_lower or 'dir' in user_lower:
+                dir_name = self._extract_directory_name_from_create(user_input, user_lower, user_words)
+                if dir_name:
+                    return f'mkdir -p {dir_name}'
         
-        if 'write' in user_lower and 'to' in user_lower:
+        if 'write' in user_lower and ('to' in user_lower or 'in' in user_lower):
             content, file_name = self._extract_write_operation(user_input, user_lower, user_words)
             if content and file_name:
                 if content.startswith("'") and content.endswith("'"):
@@ -311,7 +316,7 @@ class CommandAgent:
                 else:
                     return f"echo '{content}' > {file_name}"
         
-        if ('add' in user_lower or 'append' in user_lower) and 'to' in user_lower:
+        if ('add' in user_lower or 'append' in user_lower) and ('to' in user_lower or 'in' in user_lower):
             content, file_name = self._extract_append_operation(user_input, user_lower, user_words)
             if content and file_name:
                 if content.startswith("'") and content.endswith("'"):
@@ -321,12 +326,439 @@ class CommandAgent:
                 else:
                     return f"echo '{content}' >> {file_name}"
         
-        if 'read' in user_lower and 'file' in user_lower:
-            file_name = self._extract_file_name_from_read(user_input, user_lower, user_words)
-            if file_name:
-                return f'cat {file_name}'
+        if 'read' in user_lower:
+            if 'directory' in user_lower or 'folder' in user_lower:
+                dir_name = self._extract_directory_name_from_read(user_input, user_lower, user_words)
+                if dir_name:
+                    return f'ls {dir_name}'
+            else:
+                file_name = self._extract_file_name_from_read(user_input, user_lower, user_words)
+                if file_name:
+                    return f'cat {file_name}'
+        
+        if 'rename' in user_lower or ('change' in user_lower and 'name' in user_lower):
+            old_name, new_name = self._extract_rename_operation(user_input, user_lower, user_words)
+            if old_name and new_name:
+                return f'mv {old_name} {new_name}'
+        
+        if 'list' in user_lower and ('directory' in user_lower or 'folder' in user_lower or 'dir' in user_lower):
+            dir_name = self._extract_directory_name_from_read(user_input, user_lower, user_words)
+            if dir_name:
+                return f'ls {dir_name}'
+            return 'ls'
+        
+        system_op = self._handle_system_operations(user_input, user_lower, user_words)
+        if system_op:
+            return system_op
+        
+        network_op = self._handle_networking_operations(user_input, user_lower, user_words)
+        if network_op:
+            return network_op
         
         return None
+    
+    def _handle_system_operations(self, user_input: str, user_lower: str, user_words: list) -> Optional[str]:
+        """Handle system operations like chmod, chown, usermod, etc.
+        
+        Takes in:
+            user_input: Natural language prompt
+            user_lower: Lowercase user input
+            user_words: List of words from user input
+        
+        Gives back:
+            Command string if system operation detected, None otherwise"""
+        
+        if 'chmod' in user_lower or ('change' in user_lower and 'permission' in user_lower):
+            return self._extract_chmod_operation(user_input, user_lower, user_words)
+        
+        if 'chown' in user_lower or ('change' in user_lower and 'owner' in user_lower):
+            return self._extract_chown_operation(user_input, user_lower, user_words)
+        
+        if 'usermod' in user_lower or ('modify' in user_lower and 'user' in user_lower):
+            return self._extract_usermod_operation(user_input, user_lower, user_words)
+        
+        return None
+    
+    def _extract_chmod_operation(self, user_input: str, user_lower: str, user_words: list) -> Optional[str]:
+        """Extract chmod operation details.
+        
+        Takes in:
+            user_input: Original user input
+            user_lower: Lowercase user input
+            user_words: List of words from user input
+        
+        Gives back:
+            chmod command string"""
+        
+        chmod_idx = user_lower.find('chmod')
+        change_idx = user_lower.find('change')
+        permission_idx = user_lower.find('permission')
+        of_idx = user_lower.find('of')
+        to_idx = user_lower.find('to')
+        
+        if chmod_idx != -1:
+            chmod_word_idx = user_lower[:chmod_idx].count(' ')
+            if chmod_word_idx + 1 < len(user_words):
+                perm = user_words[chmod_word_idx + 1]
+                if chmod_word_idx + 2 < len(user_words):
+                    file_name = user_words[chmod_word_idx + 2]
+                    return f'chmod {perm} {file_name}'
+        
+        if change_idx != -1 and permission_idx != -1:
+            if of_idx != -1 and to_idx != -1:
+                of_word_idx = user_lower[:of_idx].count(' ')
+                to_word_idx = user_lower[:to_idx].count(' ')
+                
+                file_words = user_words[of_word_idx + 1:to_word_idx]
+                file_name = self._extract_file_name_from_words(file_words, user_input)
+                if not file_name and file_words:
+                    file_name = file_words[0].strip("'\".,;:!?")
+                
+                perm_words = user_words[to_word_idx + 1:]
+                perm = ' '.join(perm_words).strip() if perm_words else None
+                
+                if file_name and perm:
+                    return f'chmod {perm} {file_name}'
+        
+        return None
+    
+    def _extract_chown_operation(self, user_input: str, user_lower: str, user_words: list) -> Optional[str]:
+        """Extract chown operation details.
+        
+        Takes in:
+            user_input: Original user input
+            user_lower: Lowercase user input
+            user_words: List of words from user input
+        
+        Gives back:
+            chown command string"""
+        
+        chown_idx = user_lower.find('chown')
+        change_idx = user_lower.find('change')
+        owner_idx = user_lower.find('owner')
+        of_idx = user_lower.find('of')
+        to_idx = user_lower.find('to')
+        
+        if chown_idx != -1:
+            chown_word_idx = user_lower[:chown_idx].count(' ')
+            if chown_word_idx + 1 < len(user_words):
+                owner = user_words[chown_word_idx + 1]
+                if chown_word_idx + 2 < len(user_words):
+                    file_name = user_words[chown_word_idx + 2]
+                    return f'chown {owner} {file_name}'
+        
+        if change_idx != -1 and owner_idx != -1:
+            if of_idx != -1 and to_idx != -1:
+                of_word_idx = user_lower[:of_idx].count(' ')
+                to_word_idx = user_lower[:to_idx].count(' ')
+                
+                file_words = user_words[of_word_idx + 1:to_word_idx]
+                file_name = self._extract_file_name_from_words(file_words, user_input)
+                if not file_name and file_words:
+                    file_name = file_words[0].strip("'\".,;:!?")
+                
+                owner_words = user_words[to_word_idx + 1:]
+                owner = ' '.join(owner_words).strip() if owner_words else None
+                
+                if file_name and owner:
+                    return f'chown {owner} {file_name}'
+        
+        return None
+    
+    def _extract_usermod_operation(self, user_input: str, user_lower: str, user_words: list) -> Optional[str]:
+        """Extract usermod operation details.
+        
+        Takes in:
+            user_input: Original user input
+            user_lower: Lowercase user input
+            user_words: List of words from user input
+        
+        Gives back:
+            usermod command string"""
+        
+        usermod_idx = user_lower.find('usermod')
+        modify_idx = user_lower.find('modify')
+        user_idx = user_lower.find('user')
+        
+        if usermod_idx != -1:
+            usermod_word_idx = user_lower[:usermod_idx].count(' ')
+            if usermod_word_idx + 1 < len(user_words):
+                options = user_words[usermod_word_idx + 1:]
+                return f'usermod {" ".join(options)}'
+        
+        if modify_idx != -1 and user_idx != -1:
+            modify_word_idx = user_lower[:modify_idx].count(' ')
+            user_word_idx = user_lower[:user_idx].count(' ')
+            
+            if modify_word_idx < user_word_idx:
+                user_name_words = user_words[user_word_idx + 1:]
+                user_name = user_name_words[0] if user_name_words else None
+                
+                if user_name:
+                    return f'usermod {user_name}'
+        
+        return None
+    
+    def _handle_networking_operations(self, user_input: str, user_lower: str, user_words: list) -> Optional[str]:
+        """Handle networking operations like IP address, ping, traceroute, etc.
+        
+        Takes in:
+            user_input: Natural language prompt
+            user_lower: Lowercase user input
+            user_words: List of words from user input
+        
+        Gives back:
+            Command string if networking operation detected, None otherwise"""
+        
+        if ('show' in user_lower or 'display' in user_lower or 'get' in user_lower) and ('ip' in user_lower or 'address' in user_lower):
+            if 'ip' in user_lower and 'address' in user_lower:
+                return 'ip addr show'
+            elif 'ip' in user_lower:
+                return 'ip addr show'
+        
+        if 'ping' in user_lower:
+            return self._extract_ping_operation(user_input, user_lower, user_words)
+        
+        if 'traceroute' in user_lower:
+            traceroute_result = self._extract_traceroute_operation(user_input, user_lower, user_words)
+            if traceroute_result:
+                return traceroute_result
+            return 'traceroute'
+        
+        if 'trace' in user_lower and 'route' in user_lower:
+            has_target = any(('.' in word and len(word) > 4) or (word.replace('.', '').replace(':', '').isalnum() and len(word) > 6) for word in user_words) or 'to' in user_lower
+            if has_target:
+                traceroute_result = self._extract_traceroute_operation(user_input, user_lower, user_words)
+                if traceroute_result:
+                    return traceroute_result
+        
+        if ('check' in user_lower or 'test' in user_lower) and ('connectivity' in user_lower or 'reachable' in user_lower or 'connection' in user_lower):
+            return self._extract_connectivity_check(user_input, user_lower, user_words)
+        
+        if 'hostname' in user_lower:
+            return 'hostname'
+        
+        if ('show' in user_lower or 'display' in user_lower) and ('route' in user_lower or 'routing' in user_lower):
+            has_target = any(('.' in word and len(word) > 4) or (word.replace('.', '').replace(':', '').isalnum() and len(word) > 6) for word in user_words)
+            has_to = 'to' in user_lower
+            if 'table' in user_lower:
+                return 'ip route show'
+            elif has_target or has_to:
+                traceroute_result = self._extract_traceroute_operation(user_input, user_lower, user_words)
+                if traceroute_result:
+                    return traceroute_result
+            else:
+                return 'ip route show'
+        
+        if ('dns' in user_lower or 'lookup' in user_lower) and ('domain' in user_lower or any(word in user_words for word in user_words if '.' in word and word.replace('.', '').replace('-', '').isalnum())):
+            return self._extract_dns_lookup(user_input, user_lower, user_words)
+        
+        return None
+    
+    def _extract_ping_operation(self, user_input: str, user_lower: str, user_words: list) -> Optional[str]:
+        """Extract ping operation details.
+        
+        Takes in:
+            user_input: Original user input
+            user_lower: Lowercase user input
+            user_words: List of words from user input
+        
+        Gives back:
+            ping command string"""
+        
+        ping_idx = user_lower.find('ping')
+        ping_word_idx = user_lower[:ping_idx].count(' ')
+        
+        target = None
+        count = None
+        
+        if ping_word_idx + 1 < len(user_words):
+            potential_target = user_words[ping_word_idx + 1]
+            if potential_target.lower() not in ['to', 'the', 'a', 'an', 'if', 'is', 'check', 'test']:
+                target = potential_target
+        
+        if not target:
+            for i, word in enumerate(user_words):
+                if word.lower() == 'ping' and i + 1 < len(user_words):
+                    next_word = user_words[i + 1]
+                    if next_word.lower() not in ['to', 'the', 'a', 'an', 'if', 'is', 'check', 'test']:
+                        target = next_word
+                        break
+        
+        if not target:
+            for i, word in enumerate(user_words):
+                word_clean = word.strip("'\".,;:!?")
+                if ('.' in word_clean or word_clean.replace('.', '').replace(':', '').isalnum()) and len(word_clean) > 2:
+                    if word_clean.lower() not in ['the', 'a', 'an', 'is', 'ip', 'one', 'two', 'three', 'time', 'times', 'once', 'ping', 'check', 'test', 'if', 'to']:
+                        target = word_clean
+                        break
+        
+        count = self._extract_count_from_text(user_input, user_lower, user_words)
+        
+        if target and count:
+            return f'ping -c {count} {target}'
+        elif target:
+            return f'ping {target}'
+        elif count:
+            return f'ping -c {count}'
+        else:
+            return 'ping'
+    
+    def _extract_count_from_text(self, user_input: str, user_lower: str, user_words: list) -> Optional[int]:
+        """Extract count/number from text for ping and other commands.
+        
+        Takes in:
+            user_input: Original user input
+            user_lower: Lowercase user input
+            user_words: List of words from user input
+        
+        Gives back:
+            Count as integer, or None if not found"""
+        
+        number_words = {
+            'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+            'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+            'eleven': 11, 'twelve': 12, 'thirteen': 13, 'fourteen': 14, 'fifteen': 15,
+            'sixteen': 16, 'seventeen': 17, 'eighteen': 18, 'nineteen': 19, 'twenty': 20
+        }
+        
+        for i, word in enumerate(user_words):
+            word_clean = word.strip("'\".,;:!?")
+            word_lower = word_clean.lower()
+            
+            if word_lower in number_words:
+                if i + 1 < len(user_words):
+                    next_word = user_words[i + 1].lower()
+                    if 'time' in next_word or 'packet' in next_word:
+                        return number_words[word_lower]
+            
+            if word_clean.isdigit():
+                num = int(word_clean)
+                if i + 1 < len(user_words):
+                    next_word = user_words[i + 1].lower()
+                    if 'time' in next_word or 'packet' in next_word:
+                        return num
+                elif i > 0:
+                    prev_word = user_words[i - 1].lower()
+                    if 'ping' in prev_word or 'time' in prev_word:
+                        return num
+        
+        if 'one time' in user_lower or 'once' in user_lower:
+            return 1
+        
+        return None
+    
+    def _extract_traceroute_operation(self, user_input: str, user_lower: str, user_words: list) -> Optional[str]:
+        """Extract traceroute operation details.
+        
+        Takes in:
+            user_input: Original user input
+            user_lower: Lowercase user input
+            user_words: List of words from user input
+        
+        Gives back:
+            traceroute command string"""
+        
+        traceroute_idx = user_lower.find('traceroute')
+        trace_idx = user_lower.find('trace')
+        route_idx = user_lower.find('route')
+        
+        target_word_idx = -1
+        if traceroute_idx != -1:
+            traceroute_word_idx = user_lower[:traceroute_idx].count(' ')
+            if traceroute_word_idx + 1 < len(user_words):
+                target = user_words[traceroute_word_idx + 1]
+                if target.lower() not in ['to', 'the', 'a', 'an', 'of', 'network']:
+                    return f'traceroute {target}'
+        
+        if trace_idx != -1 and route_idx != -1:
+            route_word_idx = user_lower[:route_idx].count(' ')
+            if route_word_idx + 1 < len(user_words):
+                target = user_words[route_word_idx + 1]
+                if target.lower() not in ['to', 'the', 'a', 'an', 'of', 'network']:
+                    return f'traceroute {target}'
+        
+        to_idx = user_lower.find('to')
+        if to_idx != -1:
+            to_word_idx = user_lower[:to_idx].count(' ')
+            if to_word_idx + 1 < len(user_words):
+                target = user_words[to_word_idx + 1]
+                if target.lower() not in ['the', 'a', 'an']:
+                    return f'traceroute {target}'
+        
+        return None
+    
+    def _extract_connectivity_check(self, user_input: str, user_lower: str, user_words: list) -> Optional[str]:
+        """Extract connectivity check operation.
+        
+        Takes in:
+            user_input: Original user input
+            user_lower: Lowercase user input
+            user_words: List of words from user input
+        
+        Gives back:
+            ping command string for connectivity check"""
+        
+        check_idx = user_lower.find('check')
+        test_idx = user_lower.find('test')
+        if_idx = user_lower.find('if')
+        
+        action_idx = check_idx if check_idx != -1 else test_idx
+        if action_idx == -1:
+            return None
+        
+        target = None
+        if if_idx != -1 and if_idx > action_idx:
+            if_word_idx = user_lower[:if_idx].count(' ')
+            if if_word_idx + 1 < len(user_words):
+                potential_target = user_words[if_word_idx + 1]
+                if potential_target.lower() not in ['the', 'a', 'an', 'is', 'ip']:
+                    target = potential_target
+        
+        if not target:
+            reachable_idx = user_lower.find('reachable')
+            to_idx = user_lower.find('to')
+            
+            search_start = max(action_idx, reachable_idx if reachable_idx != -1 else 0, to_idx if to_idx != -1 else 0)
+            search_start_word = user_lower[:search_start].count(' ') if search_start > 0 else 0
+            
+            for i in range(search_start_word, len(user_words)):
+                word = user_words[i]
+                word_clean = word.strip("'\".,;:!?")
+                if ('.' in word_clean or word_clean.replace('.', '').replace(':', '').isalnum()) and len(word_clean) > 2:
+                    if word_clean.lower() not in ['the', 'a', 'an', 'is', 'ip', 'one', 'two', 'three', 'time', 'times', 'once']:
+                        target = word_clean
+                        break
+        
+        count = self._extract_count_from_text(user_input, user_lower, user_words)
+        
+        if target and count:
+            return f'ping -c {count} {target}'
+        elif target:
+            return f'ping {target}'
+        elif count:
+            return f'ping -c {count}'
+        else:
+            return 'ping'
+    
+    def _extract_dns_lookup(self, user_input: str, user_lower: str, user_words: list) -> Optional[str]:
+        """Extract DNS lookup operation.
+        
+        Takes in:
+            user_input: Original user input
+            user_lower: Lowercase user input
+            user_words: List of words from user input
+        
+        Gives back:
+            nslookup or dig command string"""
+        
+        for word in user_words:
+            if '.' in word and word.replace('.', '').replace('-', '').isalnum():
+                domain = word.strip("'\".,;:!?")
+                if domain and len(domain) > 2:
+                    return f'nslookup {domain}'
+        
+        return 'nslookup'
     
     def _extract_file_name_from_create(self, user_input: str, user_lower: str, user_words: list) -> Optional[str]:
         """Extract file name from create file commands.
@@ -429,22 +861,43 @@ class CommandAgent:
             Tuple of (content, file_name)"""
         
         write_idx = user_lower.find('write')
-        to_idx = user_lower.find('to')
         file_idx = user_lower.find('file')
         
-        if write_idx == -1 or to_idx == -1:
+        if write_idx == -1:
             return None, None
         
-        if write_idx < to_idx:
-            to_word_idx = user_lower[:to_idx].count(' ')
-            content_words = user_words[write_idx + 1:to_word_idx]
+        write_word_idx = user_lower[:write_idx].count(' ')
+        
+        to_word_idx = -1
+        in_word_idx = -1
+        for i, word in enumerate(user_words):
+            if word.lower() == 'to' and i > write_word_idx:
+                to_word_idx = i
+                break
+        for i, word in enumerate(user_words):
+            if word.lower() == 'in' and i > write_word_idx:
+                in_word_idx = i
+                break
+        
+        target_word_idx = -1
+        if to_word_idx != -1:
+            if in_word_idx == -1 or to_word_idx < in_word_idx:
+                target_word_idx = to_word_idx
+        if target_word_idx == -1 and in_word_idx != -1:
+            target_word_idx = in_word_idx
+        
+        if target_word_idx == -1:
+            return None, None
+        
+        if write_word_idx < target_word_idx:
+            content_words = user_words[write_word_idx + 1:target_word_idx]
             content = ' '.join(content_words).strip()
             
-            file_words = user_words[to_word_idx + 1:]
+            file_words = user_words[target_word_idx + 1:]
             
-            if file_idx != -1 and file_idx > to_idx:
+            if file_idx != -1:
                 file_word_idx = user_lower[:file_idx].count(' ')
-                if file_word_idx >= to_word_idx:
+                if file_word_idx > target_word_idx:
                     file_words = user_words[file_word_idx:]
             
             file_name = self._extract_file_name_from_words(file_words, user_input)
@@ -472,23 +925,43 @@ class CommandAgent:
         
         add_idx = user_lower.find('add')
         append_idx = user_lower.find('append')
-        to_idx = user_lower.find('to')
         file_idx = user_lower.find('file')
         
         action_idx = add_idx if add_idx != -1 else append_idx
-        if action_idx == -1 or to_idx == -1:
+        if action_idx == -1:
             return None, None
         
-        if action_idx < to_idx:
-            to_word_idx = user_lower[:to_idx].count(' ')
-            content_words = user_words[action_idx + 1:to_word_idx]
+        to_word_idx = -1
+        in_word_idx = -1
+        for i, word in enumerate(user_words):
+            if word.lower() == 'to' and i > action_idx:
+                to_word_idx = i
+                break
+        for i, word in enumerate(user_words):
+            if word.lower() == 'in' and i > action_idx:
+                in_word_idx = i
+                break
+        
+        target_word_idx = -1
+        if to_word_idx != -1:
+            if in_word_idx == -1 or to_word_idx < in_word_idx:
+                target_word_idx = to_word_idx
+        if target_word_idx == -1 and in_word_idx != -1:
+            target_word_idx = in_word_idx
+        
+        if target_word_idx == -1:
+            return None, None
+        
+        action_word_idx = user_lower[:action_idx].count(' ')
+        if action_word_idx < target_word_idx:
+            content_words = user_words[action_word_idx + 1:target_word_idx]
             content = ' '.join(content_words).strip()
             
-            file_words = user_words[to_word_idx + 1:]
+            file_words = user_words[target_word_idx + 1:]
             
-            if file_idx != -1 and file_idx > to_idx:
+            if file_idx != -1:
                 file_word_idx = user_lower[:file_idx].count(' ')
-                if file_word_idx >= to_word_idx:
+                if file_word_idx > target_word_idx:
                     file_words = user_words[file_word_idx:]
             
             file_name = self._extract_file_name_from_words(file_words, user_input)
@@ -517,10 +990,10 @@ class CommandAgent:
         read_idx = user_lower.find('read')
         file_idx = user_lower.find('file')
         
-        if read_idx == -1 or file_idx == -1:
+        if read_idx == -1:
             return None
         
-        if read_idx < file_idx:
+        if file_idx != -1 and read_idx < file_idx:
             file_word_idx = user_lower[:file_idx].count(' ')
             file_words = user_words[file_word_idx + 1:]
             if not file_words:
@@ -538,8 +1011,156 @@ class CommandAgent:
                     file_name = filtered_file_words[0]
             
             return file_name
+        else:
+            read_word_idx = user_lower[:read_idx].count(' ')
+            file_words = user_words[read_word_idx + 1:]
+            
+            filtered_file_words = [w for w in file_words if w.lower() not in ['the', 'a', 'an', 'file']]
+            if not filtered_file_words:
+                filtered_file_words = file_words
+            
+            file_name = self._extract_file_name_from_words(filtered_file_words, user_input)
+            
+            if not file_name and filtered_file_words:
+                first_word = filtered_file_words[0].strip("'\".,;:!?")
+                if '.' in first_word or first_word.replace('.', '').replace('_', '').isalnum():
+                    file_name = filtered_file_words[0]
+            
+            return file_name
+    
+    def _extract_directory_name_from_read(self, user_input: str, user_lower: str, user_words: list) -> Optional[str]:
+        """Extract directory name from read directory commands.
+        
+        Takes in:
+            user_input: Original user input
+            user_lower: Lowercase user input
+            user_words: List of words from user input
+        
+        Gives back:
+            Directory name"""
+        
+        read_idx = user_lower.find('read')
+        directory_idx = user_lower.find('directory')
+        folder_idx = user_lower.find('folder')
+        dir_idx = user_lower.find('dir')
+        
+        target_idx = max(directory_idx, folder_idx, dir_idx)
+        
+        if read_idx != -1 and target_idx != -1:
+            target_word_idx = user_lower[:target_idx].count(' ')
+            dir_words = user_words[target_word_idx + 1:]
+            filtered = [w for w in dir_words if w.lower() not in ['directory', 'folder', 'dir', 'the', 'a', 'an']]
+            if filtered:
+                return self._extract_file_name_from_words(filtered, user_input)
+            return self._extract_file_name_from_words(dir_words, user_input)
         
         return None
+    
+    def _extract_directory_name_from_create(self, user_input: str, user_lower: str, user_words: list) -> Optional[str]:
+        """Extract directory name from create directory commands.
+        
+        Takes in:
+            user_input: Original user input
+            user_lower: Lowercase user input
+            user_words: List of words from user input
+        
+        Gives back:
+            Directory name"""
+        
+        named_idx = user_lower.find('named')
+        called_idx = user_lower.find('called')
+        directory_idx = user_lower.find('directory')
+        folder_idx = user_lower.find('folder')
+        dir_idx = user_lower.find('dir')
+        
+        target_idx = max(directory_idx, folder_idx, dir_idx)
+        
+        if named_idx != -1:
+            start_idx = named_idx + len('named')
+            remaining = user_input[start_idx:].strip()
+            words = remaining.split()
+            filtered = [w for w in words if w.lower() not in ['directory', 'folder', 'dir', 'the', 'a', 'an']]
+            if filtered:
+                return self._extract_file_name_from_words(filtered, user_input)
+            return self._extract_file_name_from_words(words, user_input)
+        
+        if called_idx != -1:
+            start_idx = called_idx + len('called')
+            remaining = user_input[start_idx:].strip()
+            words = remaining.split()
+            filtered = [w for w in words if w.lower() not in ['directory', 'folder', 'dir', 'the', 'a', 'an']]
+            if filtered:
+                return self._extract_file_name_from_words(filtered, user_input)
+            return self._extract_file_name_from_words(words, user_input)
+        
+        if target_idx != -1:
+            target_word_idx = user_lower[:target_idx].count(' ')
+            dir_words = user_words[target_word_idx + 1:]
+            filtered = [w for w in dir_words if w.lower() not in ['directory', 'folder', 'dir', 'named', 'called', 'the', 'a', 'an']]
+            if filtered:
+                return self._extract_file_name_from_words(filtered, user_input)
+            return self._extract_file_name_from_words(dir_words, user_input)
+        
+        return None
+    
+    def _extract_rename_operation(self, user_input: str, user_lower: str, user_words: list) -> Tuple[Optional[str], Optional[str]]:
+        """Extract old and new file names from rename operations.
+        
+        Takes in:
+            user_input: Original user input
+            user_lower: Lowercase user input
+            user_words: List of words from user input
+        
+        Gives back:
+            Tuple of (old_name, new_name)"""
+        
+        rename_idx = user_lower.find('rename')
+        change_idx = user_lower.find('change')
+        name_idx = user_lower.find('name')
+        to_idx = user_lower.find('to')
+        
+        if rename_idx == -1 and (change_idx == -1 or name_idx == -1):
+            return None, None
+        
+        action_idx = rename_idx if rename_idx != -1 else change_idx
+        
+        if to_idx == -1:
+            return None, None
+        
+        to_word_idx = -1
+        for i, word in enumerate(user_words):
+            if word.lower() == 'to' and i > action_idx:
+                to_word_idx = i
+                break
+        
+        if to_word_idx == -1:
+            return None, None
+        
+        action_word_idx = user_lower[:action_idx].count(' ')
+        
+        if action_word_idx < to_word_idx:
+            old_name_words = user_words[action_word_idx + 1:to_word_idx]
+            filtered_old = [w for w in old_name_words if w.lower() not in ['file', 'the', 'a', 'an', 'from', 'of', 'name', 'directory', 'folder', 'dir']]
+            if not filtered_old:
+                filtered_old = old_name_words
+            
+            old_name = self._extract_file_name_from_words(filtered_old, user_input)
+            
+            if not old_name and filtered_old:
+                old_name = filtered_old[0].strip("'\".,;:!?")
+            
+            new_name_words = user_words[to_word_idx + 1:]
+            new_name = self._extract_file_name_from_words(new_name_words, user_input)
+            
+            if not new_name and new_name_words:
+                filtered = [w for w in new_name_words if w.lower() not in ['file', 'the', 'a', 'an', 'to']]
+                if filtered:
+                    new_name = filtered[0].strip("'\".,;:!?")
+            
+            if old_name and new_name:
+                return old_name, new_name
+        
+        return None, None
     
     def _build_copy_command(self, source: str, dest: str, user_lower: str, matched_output: str) -> str:
         """Build a cp command from source and destination.
@@ -911,6 +1532,10 @@ class CommandAgent:
         if self._is_direct_command(user_input):
             return user_input
         
+        file_operation = self._handle_file_operations(user_input)
+        if file_operation:
+            return file_operation
+        
         short_command_match = self._handle_short_commands(user_input)
         if short_command_match:
             return short_command_match
@@ -938,6 +1563,9 @@ class CommandAgent:
         ]
         
         text_lower = text.lower().strip()
+        
+        if text_lower.startswith('sudo '):
+            return True
         
         if len(text.split()) == 1:
             common_commands = ['ls', 'pwd', 'cd', 'cat', 'grep', 'find', 'cp', 'mv', 'rm', 'mkdir', 'rmdir', 
